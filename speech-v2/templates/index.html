@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ishita's Conversation Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            border-radius: 15px 15px 0 0 !important;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #4776E6, #8E54E9);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #405DE6, #5851DB);
+        }
+        .btn-success {
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+            border: none;
+        }
+        .btn-success:hover {
+            background: linear-gradient(45deg, #0c7c6d, #2bc56d);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-listening {
+            background-color: #28a745;
+            animation: pulse 1.5s infinite;
+        }
+        .status-ready {
+            background-color: #6c757d;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        .conversation-box {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 15px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #d1ecf1;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        .system-message {
+            background-color: #e2e3e5;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        .message-time {
+            font-size: 0.7rem;
+            color: #6c757d;
+            display: block;
+            text-align: right;
+        }
+        .typing-indicator {
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .typing-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #6c757d;
+            animation: typingAnimation 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="my-4">Ishita's Conversation Bot</h1>
+
+        <div class="row">
+            <!-- Conversation Interface -->
+            <div class="col-md-8 mx-auto">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        Two-Way Conversation Interface
+                    </div>
+                    <div class="card-body">
+                        <div class="conversation-box mb-3" id="conversation">
+                            <div class="message system-message">
+                                <strong>Bot:</strong> Hello! I'm Ishita's conversation bot. How can I help you today?
+                                <span class="message-time">Just now</span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <span class="status-indicator status-ready" id="statusIndicator"></span>
+                                <span id="statusText">Ready to listen</span>
+                            </div>
+                            <div>
+                                <button id="startBtn" class="btn btn-success me-2">
+                                    <i class="bi bi-mic"></i> Start Listening
+                                </button>
+                                <button id="stopBtn" class="btn btn-danger" disabled>
+                                    <i class="bi bi-mic-mute"></i> Stop Listening
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="textInput" class="form-label">Or type your message:</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="textInput" placeholder="Type your message here...">
+                                <button class="btn btn-primary" id="textSubmit">Send</button>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="autoPlay" checked>
+                            <label class="form-check-label" for="autoPlay">Auto-play responses</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check browser support
+        const speechRecognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+        const speechSynthesisSupported = 'speechSynthesis' in window;
+
+        if (!speechRecognitionSupported || !speechSynthesisSupported) {
+            alert('Your browser does not support the Web Speech API. Please use Chrome, Edge, or Safari.');
+        }
+
+        // Initialize speech recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const conversation = document.getElementById('conversation');
+        const textInput = document.getElementById('textInput');
+        const textSubmit = document.getElementById('textSubmit');
+        const autoPlay = document.getElementById('autoPlay');
+
+        // Conversation state
+        let isListening = false;
+
+        // Add message to conversation
+        function addMessage(text, isUser = false) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'system-message'}`;
+
+            messageDiv.innerHTML = `
+                <strong>${isUser ? 'You' : 'Bot'}:</strong> ${text}
+                <span class="message-time">${timeString}</span>
+            `;
+
+            conversation.appendChild(messageDiv);
+            conversation.scrollTop = conversation.scrollHeight;
+
+            // If it's a system message and auto-play is enabled, speak it
+            if (!isUser && autoPlay.checked) {
+                speakText(text);
+            }
+        }
+
+        // Show typing indicator
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'message system-message';
+            typingDiv.innerHTML = `
+                <strong>Bot:</strong> is typing
+                <span class="typing-indicator">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </span>
+            `;
+
+            conversation.appendChild(typingDiv);
+            conversation.scrollTop = conversation.scrollHeight;
+        }
+
+        // Hide typing indicator
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // Get response from the bot
+        async function getBotResponse(userInput) {
+            showTypingIndicator();
+
+            try {
+                const response = await fetch('/get_response', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_input: userInput })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    hideTypingIndicator();
+                    addMessage(data.response, false);
+                } else {
+                    hideTypingIndicator();
+                    addMessage("Sorry, I'm having trouble connecting to the server.", false);
+                }
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage("I encountered an error. Please try again.", false);
+                console.error("API Error:", error);
+            }
+        }
+
+        // Speak text using speech synthesis
+        function speakText(text) {
+            if (!speechSynthesisSupported) return;
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+
+            speechSynthesis.speak(utterance);
+        }
+
+        // Start listening
+        function startListening() {
+            if (!speechRecognitionSupported) return;
+
+            try {
+                recognition.start();
+                isListening = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusIndicator.className = 'status-indicator status-listening';
+                statusText.textContent = 'Listening...';
+            } catch (error) {
+                console.error('Speech recognition error:', error);
+            }
+        }
+
+        // Stop listening
+        function stopListening() {
+            if (!speechRecognitionSupported) return;
+
+            recognition.stop();
+            isListening = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusIndicator.className = 'status-indicator status-ready';
+            statusText.textContent = 'Ready to listen';
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startListening);
+        stopBtn.addEventListener('click', stopListening);
+
+        textSubmit.addEventListener('click', () => {
+            if (textInput.value.trim() !== '') {
+                addMessage(textInput.value, true);
+                getBotResponse(textInput.value);
+                textInput.value = '';
+            }
+        });
+
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                textSubmit.click();
+            }
+        });
+
+        // Speech recognition event handlers
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            addMessage(transcript, true);
+            getBotResponse(transcript);
+        };
+
+        recognition.onend = () => {
+            if (isListening) {
+                // If we're still supposed to be listening, restart
+                setTimeout(() => {
+                    if (isListening) {
+                        try {
+                            recognition.start();
+                        } catch (error) {
+                            console.error('Error restarting recognition:', error);
+                            stopListening();
+                        }
+                    }
+                }, 100);
+            } else {
+                stopListening();
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            addMessage(`Error: ${event.error}`, false);
+            stopListening();
+        };
+    </script>
+</body>
+</html>
