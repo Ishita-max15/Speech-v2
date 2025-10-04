@@ -106,3 +106,4 @@ if __name__ == "__main__":
         port=8000,
         ssl_keyfile="./key.pem",  # Optional: for HTTPS
         ssl_certfile="./cert.pem"
+    )
